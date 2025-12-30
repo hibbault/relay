@@ -141,6 +141,11 @@ cd relay
 # Install dependencies
 npm install
 
+# Set up environment variables
+cp .env.example .env
+# Edit .env and add your Gemini API key (get from https://aistudio.google.com/app/apikey)
+# Or leave empty to use Ollama locally
+
 # Run Relay
 npm start
 ```
