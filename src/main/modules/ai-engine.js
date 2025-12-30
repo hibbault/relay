@@ -35,6 +35,23 @@ CAPABILITIES - You can:
 - Empty the trash
 - Flush DNS cache
 
+UTILITY TOOLS - You can also help with everyday tasks:
+- Generate secure passwords
+- Create QR codes from text or URLs
+- Convert HEIC photos to JPG (iPhone photos)
+- Resize and compress images
+- Split, merge, and compress PDF files
+- Calculate file checksums (verify downloads)
+- Format and validate JSON
+- Text utilities: word count, case conversion, remove duplicates
+- Encode/decode Base64
+
+For utility requests, DIRECTLY perform the action without running diagnostics first!
+Examples:
+- "generate a password" → Generate and show the password immediately
+- "convert my photo" → Ask for the file path, then convert
+- "create a QR code for my website" → Generate the QR code
+
 AVAILABLE ACTIONS (use these exact types in your response):
 - "run-diagnostics" - Run a system health scan
 - "kill-process" - Stop a specific application (include processName)
@@ -47,10 +64,24 @@ AVAILABLE ACTIONS (use these exact types in your response):
 - "restart-app" - Close and reopen an application (include appName)
 - "query-system" - Get system information (include queryType: system-info, disk-usage, memory-info, process-list, top-processes, network-info, uptime, battery, startup-apps, installed-apps, temp-files-size, browser-processes, printer-status, printer-queue)
 
+UTILITY ACTIONS:
+- "generate-password" - Create a secure password (length=16, symbols=true)
+- "generate-qrcode" - Create QR code (include content and optionally outputPath)
+- "heic-to-jpg" - Convert HEIC to JPG (include inputPath)
+- "resize-image" - Resize an image (include inputPath, width or height or percentage)
+- "compress-image" - Compress an image (include inputPath, quality=80)
+- "compress-pdf" - Compress a PDF (include inputPath, quality=ebook)
+- "split-pdf" - Extract pages from PDF (include inputPath, pages like "1-3")
+- "merge-pdfs" - Combine PDFs (include inputPaths as array)
+- "file-hash" - Calculate checksum (include filePath, algorithm=sha256)
+
 When you want to perform an action, include it in your response like this:
 [ACTION: type="action-type" param="value"]
 
-Example: "Let me check what's using your memory. [ACTION: type="query-system" queryType="top-processes"]"
+Examples:
+- "Let me check what's using your memory. [ACTION: type="query-system" queryType="top-processes"]"
+- "Here's a secure password for you! [ACTION: type="generate-password" length="16"]"
+- "I'll create that QR code for you. [ACTION: type="generate-qrcode" content="https://example.com"]"
 
 IMPORTANT RULES:
 1. NEVER suggest or run dangerous actions like deleting system files
@@ -360,6 +391,74 @@ RELAY:`;
      */
     fallbackResponse(message, context) {
         const lowerMessage = message.toLowerCase();
+
+        // ============ UTILITY TOOL FALLBACKS ============
+
+        if (lowerMessage.includes('password') && (lowerMessage.includes('generate') || lowerMessage.includes('create') || lowerMessage.includes('make') || lowerMessage.includes('new'))) {
+            return {
+                text: "Sure! I'll generate a secure password for you right now. Here it is:",
+                actions: [{ type: 'generate-password', length: 16, includeSymbols: true }],
+                source: 'fallback'
+            };
+        }
+
+        if (lowerMessage.includes('qr') && (lowerMessage.includes('code') || lowerMessage.includes('generate') || lowerMessage.includes('create'))) {
+            return {
+                text: "I can create a QR code for you! What text or URL would you like me to encode?",
+                actions: [],
+                source: 'fallback'
+            };
+        }
+
+        if (lowerMessage.includes('heic') || (lowerMessage.includes('iphone') && lowerMessage.includes('photo'))) {
+            return {
+                text: "I can convert your HEIC photos to JPG! Just drag the file onto this window, or tell me the file path.",
+                actions: [],
+                source: 'fallback'
+            };
+        }
+
+        if ((lowerMessage.includes('resize') || lowerMessage.includes('compress') || lowerMessage.includes('shrink')) && lowerMessage.includes('image')) {
+            return {
+                text: "I can resize or compress your image! Just tell me the file path and what size you'd like (e.g., '50%' or '800 pixels wide').",
+                actions: [],
+                source: 'fallback'
+            };
+        }
+
+        if (lowerMessage.includes('pdf') && (lowerMessage.includes('compress') || lowerMessage.includes('smaller'))) {
+            return {
+                text: "I can compress your PDF to make it smaller! Just tell me the file path and I'll reduce its size.",
+                actions: [],
+                source: 'fallback'
+            };
+        }
+
+        if (lowerMessage.includes('pdf') && (lowerMessage.includes('split') || lowerMessage.includes('extract') || lowerMessage.includes('pages'))) {
+            return {
+                text: "I can extract specific pages from your PDF! Tell me the file path and which pages you want (e.g., '1-3' or '1,3,5').",
+                actions: [],
+                source: 'fallback'
+            };
+        }
+
+        if (lowerMessage.includes('pdf') && (lowerMessage.includes('merge') || lowerMessage.includes('combine') || lowerMessage.includes('join'))) {
+            return {
+                text: "I can merge multiple PDFs into one! Just give me the paths to the PDF files you want to combine.",
+                actions: [],
+                source: 'fallback'
+            };
+        }
+
+        if (lowerMessage.includes('checksum') || lowerMessage.includes('hash') || lowerMessage.includes('verify') && lowerMessage.includes('download')) {
+            return {
+                text: "I can calculate the checksum of a file to verify it! What file would you like me to check, and what hash are you comparing against?",
+                actions: [],
+                source: 'fallback'
+            };
+        }
+
+        // ============ SYSTEM DIAGNOSTIC FALLBACKS ============
 
         if (lowerMessage.includes('slow')) {
             return {
