@@ -14,6 +14,7 @@ const { HealthTips } = require('./modules/health-tips');
 const { CommandExecutor } = require('./modules/command-executor');
 const { NetworkDiagnostics } = require('./modules/network-diagnostics');
 const { LogAnalyzer } = require('./modules/log-analyzer');
+const { MediaUtils } = require('./modules/media-utils');
 
 // Initialize settings (replaces basic electron-store)
 const settings = new SettingsManager();
@@ -31,6 +32,7 @@ const healthTips = new HealthTips();
 const commandExecutor = new CommandExecutor();
 const networkDiagnostics = new NetworkDiagnostics();
 const logAnalyzer = new LogAnalyzer();
+const mediaUtils = new MediaUtils();
 
 function createWindow() {
     const uiSettings = settings.getUISettings();
@@ -347,6 +349,36 @@ ipcMain.handle('run-deep-scan', async () => {
 
 ipcMain.handle('get-command-history', () => {
     return commandExecutor.getHistory();
+});
+
+// ============ Media Utils IPC ============
+
+ipcMain.handle('media-get-tools-status', async () => {
+    return mediaUtils.getToolsStatus();
+});
+
+ipcMain.handle('media-get-file-info', async (event, filePath) => {
+    return await mediaUtils.getMediaInfo(filePath);
+});
+
+ipcMain.handle('media-video-to-gif', async (event, inputPath, options) => {
+    return await mediaUtils.videoToGif(inputPath, options);
+});
+
+ipcMain.handle('media-resize-image', async (event, inputPath, options) => {
+    return await mediaUtils.resizeImage(inputPath, options);
+});
+
+ipcMain.handle('media-compress-image', async (event, inputPath, options) => {
+    return await mediaUtils.compressImage(inputPath, options);
+});
+
+ipcMain.handle('media-split-pdf', async (event, inputPath, options) => {
+    return await mediaUtils.splitPdf(inputPath, options);
+});
+
+ipcMain.handle('media-merge-pdfs', async (event, inputPaths, options) => {
+    return await mediaUtils.mergePdfs(inputPaths, options);
 });
 
 // ============ App Lifecycle ============

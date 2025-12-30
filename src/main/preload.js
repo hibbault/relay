@@ -55,5 +55,14 @@ contextBridge.exposeInMainWorld('relay', {
     onAnalyzeStartup: (callback) => ipcRenderer.on('analyze-startup', callback),
     onShowTip: (callback) => ipcRenderer.on('show-tip', (event, tip) => callback(tip)),
     onOpenSettings: (callback) => ipcRenderer.on('open-settings', callback),
-    onFirstRun: (callback) => ipcRenderer.on('first-run', callback)
+    onFirstRun: (callback) => ipcRenderer.on('first-run', callback),
+
+    // Media Utilities
+    mediaGetToolsStatus: () => ipcRenderer.invoke('media-get-tools-status'),
+    mediaGetFileInfo: (filePath) => ipcRenderer.invoke('media-get-file-info', filePath),
+    mediaVideoToGif: (inputPath, options) => ipcRenderer.invoke('media-video-to-gif', inputPath, options),
+    mediaResizeImage: (inputPath, options) => ipcRenderer.invoke('media-resize-image', inputPath, options),
+    mediaCompressImage: (inputPath, options) => ipcRenderer.invoke('media-compress-image', inputPath, options),
+    mediaSplitPdf: (inputPath, options) => ipcRenderer.invoke('media-split-pdf', inputPath, options),
+    mediaMergePdfs: (inputPaths, options) => ipcRenderer.invoke('media-merge-pdfs', inputPaths, options)
 });
