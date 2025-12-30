@@ -64,5 +64,20 @@ contextBridge.exposeInMainWorld('relay', {
     mediaResizeImage: (inputPath, options) => ipcRenderer.invoke('media-resize-image', inputPath, options),
     mediaCompressImage: (inputPath, options) => ipcRenderer.invoke('media-compress-image', inputPath, options),
     mediaSplitPdf: (inputPath, options) => ipcRenderer.invoke('media-split-pdf', inputPath, options),
-    mediaMergePdfs: (inputPaths, options) => ipcRenderer.invoke('media-merge-pdfs', inputPaths, options)
+    mediaMergePdfs: (inputPaths, options) => ipcRenderer.invoke('media-merge-pdfs', inputPaths, options),
+    mediaHeicToJpg: (inputPath, options) => ipcRenderer.invoke('media-heic-to-jpg', inputPath, options),
+    mediaCompressPdf: (inputPath, options) => ipcRenderer.invoke('media-compress-pdf', inputPath, options),
+
+    // Utility Tools
+    utilGeneratePassword: (options) => ipcRenderer.invoke('util-generate-password', options),
+    utilGenerateQRCode: (content, options) => ipcRenderer.invoke('util-generate-qrcode', content, options),
+    utilFileHash: (filePath, algorithm) => ipcRenderer.invoke('util-file-hash', filePath, algorithm),
+    utilVerifyHash: (filePath, expectedHash, algorithm) => ipcRenderer.invoke('util-verify-hash', filePath, expectedHash, algorithm),
+    utilTextStats: (text) => ipcRenderer.invoke('util-text-stats', text),
+    utilConvertCase: (text, caseType) => ipcRenderer.invoke('util-convert-case', text, caseType),
+    utilRemoveDuplicateLines: (text) => ipcRenderer.invoke('util-remove-duplicate-lines', text),
+    utilBase64Encode: (text) => ipcRenderer.invoke('util-base64-encode', text),
+    utilBase64Decode: (encoded) => ipcRenderer.invoke('util-base64-decode', encoded),
+    utilFormatJson: (jsonString) => ipcRenderer.invoke('util-format-json', jsonString),
+    utilValidateJson: (jsonString) => ipcRenderer.invoke('util-validate-json', jsonString)
 });

@@ -15,6 +15,7 @@ const { CommandExecutor } = require('./modules/command-executor');
 const { NetworkDiagnostics } = require('./modules/network-diagnostics');
 const { LogAnalyzer } = require('./modules/log-analyzer');
 const { MediaUtils } = require('./modules/media-utils');
+const { UtilityTools } = require('./modules/utility-tools');
 
 // Initialize settings (replaces basic electron-store)
 const settings = new SettingsManager();
@@ -33,6 +34,7 @@ const commandExecutor = new CommandExecutor();
 const networkDiagnostics = new NetworkDiagnostics();
 const logAnalyzer = new LogAnalyzer();
 const mediaUtils = new MediaUtils();
+const utilityTools = new UtilityTools();
 
 function createWindow() {
     const uiSettings = settings.getUISettings();
@@ -379,6 +381,60 @@ ipcMain.handle('media-split-pdf', async (event, inputPath, options) => {
 
 ipcMain.handle('media-merge-pdfs', async (event, inputPaths, options) => {
     return await mediaUtils.mergePdfs(inputPaths, options);
+});
+
+ipcMain.handle('media-heic-to-jpg', async (event, inputPath, options) => {
+    return await mediaUtils.heicToJpg(inputPath, options);
+});
+
+ipcMain.handle('media-compress-pdf', async (event, inputPath, options) => {
+    return await mediaUtils.compressPdf(inputPath, options);
+});
+
+// ============ Utility Tools IPC ============
+
+ipcMain.handle('util-generate-password', (event, options) => {
+    return utilityTools.generatePassword(options);
+});
+
+ipcMain.handle('util-generate-qrcode', async (event, content, options) => {
+    return await utilityTools.generateQRCode(content, options);
+});
+
+ipcMain.handle('util-file-hash', async (event, filePath, algorithm) => {
+    return await utilityTools.getFileHash(filePath, algorithm);
+});
+
+ipcMain.handle('util-verify-hash', async (event, filePath, expectedHash, algorithm) => {
+    return await utilityTools.verifyFileHash(filePath, expectedHash, algorithm);
+});
+
+ipcMain.handle('util-text-stats', (event, text) => {
+    return utilityTools.textStats(text);
+});
+
+ipcMain.handle('util-convert-case', (event, text, caseType) => {
+    return utilityTools.convertCase(text, caseType);
+});
+
+ipcMain.handle('util-remove-duplicate-lines', (event, text) => {
+    return utilityTools.removeDuplicateLines(text);
+});
+
+ipcMain.handle('util-base64-encode', (event, text) => {
+    return utilityTools.base64Encode(text);
+});
+
+ipcMain.handle('util-base64-decode', (event, encoded) => {
+    return utilityTools.base64Decode(encoded);
+});
+
+ipcMain.handle('util-format-json', (event, jsonString) => {
+    return utilityTools.formatJson(jsonString);
+});
+
+ipcMain.handle('util-validate-json', (event, jsonString) => {
+    return utilityTools.validateJson(jsonString);
 });
 
 // ============ App Lifecycle ============
