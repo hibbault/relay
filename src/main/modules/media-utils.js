@@ -252,6 +252,111 @@ class MediaUtils {
         };
     }
 
+    // ============ HEIC to JPG ============
+
+    async heicToJpg(inputPath, options = {}) {
+        const {
+            quality = 90,
+            outputPath = null
+        } = options;
+
+        const inputDir = path.dirname(inputPath);
+        const inputName = path.basename(inputPath, path.extname(inputPath));
+        const output = outputPath || path.join(inputDir, `${inputName}.jpg`);
+
+        try {
+            let cmd;
+
+            if (this.platform === 'darwin' && this.toolsAvailable['sips']) {
+                // macOS sips can convert HEIC to JPEG natively
+                cmd = `sips -s format jpeg -s formatOptions ${quality} "${inputPath}" --out "${output}"`;
+            } else if (this.toolsAvailable['convert']) {
+                // ImageMagick (needs HEIC delegate)
+                cmd = `convert "${inputPath}" -quality ${quality} "${output}"`;
+            } else {
+                return {
+                    success: false,
+                    error: 'No HEIC conversion tools available. On macOS, sips should work automatically.'
+                };
+            }
+
+            logger.info('[MediaUtils] Converting HEIC to JPG:', cmd);
+            await execAsync(cmd);
+
+            const stats = fs.statSync(output);
+
+            return {
+                success: true,
+                outputPath: output,
+                size: this._formatBytes(stats.size),
+                message: `Converted to JPG: ${path.basename(output)} (${this._formatBytes(stats.size)})`
+            };
+        } catch (error) {
+            logger.error('[MediaUtils] HEIC to JPG failed:', error);
+            return {
+                success: false,
+                error: error.message
+            };
+        }
+    }
+
+    // ============ Compress PDF ============
+
+    async compressPdf(inputPath, options = {}) {
+        const {
+            quality = 'ebook',  // 'screen' (72dpi), 'ebook' (150dpi), 'printer' (300dpi), 'prepress' (300dpi, color preserving)
+            outputPath = null
+        } = options;
+
+        const inputDir = path.dirname(inputPath);
+        const inputName = path.basename(inputPath, '.pdf');
+        const output = outputPath || path.join(inputDir, `${inputName}_compressed.pdf`);
+
+        // Map quality names to Ghostscript settings
+        const qualitySettings = {
+            'screen': '/screen',      // 72 dpi - smallest
+            'ebook': '/ebook',        // 150 dpi - good balance
+            'printer': '/printer',    // 300 dpi - high quality
+            'prepress': '/prepress'   // 300 dpi - highest quality
+        };
+
+        const gsSetting = qualitySettings[quality] || qualitySettings['ebook'];
+
+        try {
+            if (!this.toolsAvailable['gs']) {
+                return {
+                    success: false,
+                    error: 'Ghostscript is not installed. Install with: brew install ghostscript'
+                };
+            }
+
+            const originalSize = fs.statSync(inputPath).size;
+
+            const cmd = `gs -sDEVICE=pdfwrite -dCompatibilityLevel=1.4 -dPDFSETTINGS=${gsSetting} -dNOPAUSE -dQUIET -dBATCH -sOutputFile="${output}" "${inputPath}"`;
+
+            logger.info('[MediaUtils] Compressing PDF:', cmd);
+            await execAsync(cmd);
+
+            const newSize = fs.statSync(output).size;
+            const savedPercent = ((1 - newSize / originalSize) * 100).toFixed(1);
+
+            return {
+                success: true,
+                outputPath: output,
+                originalSize: this._formatBytes(originalSize),
+                newSize: this._formatBytes(newSize),
+                savedPercent: `${savedPercent}%`,
+                message: `Compressed PDF: ${this._formatBytes(originalSize)} → ${this._formatBytes(newSize)} (saved ${savedPercent}%)`
+            };
+        } catch (error) {
+            logger.error('[MediaUtils] PDF compression failed:', error);
+            return {
+                success: false,
+                error: error.message
+            };
+        }
+    }
+
     // ============ PDF Split ============
 
     async splitPdf(inputPath, options = {}) {
