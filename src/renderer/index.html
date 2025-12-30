@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com;">
+    <title>Relay - Your Personal IT Assistant</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- Title Bar (for frameless window) -->
+        <div class="title-bar" id="titleBar">
+            <div class="title-bar-drag">
+                <span class="app-logo">🖥️</span>
+                <span class="app-title">Relay</span>
+            </div>
+            <div class="title-bar-controls">
+                <button class="control-btn minimize" id="minimizeBtn">−</button>
+                <button class="control-btn close" id="closeBtn">×</button>
+            </div>
+        </div>
+
+        <!-- Status Bar -->
+        <div class="status-bar" id="statusBar">
+            <div class="status-indicator online" id="statusIndicator"></div>
+            <span class="status-text" id="statusText">Ready to help</span>
+            <button class="quick-scan-btn" id="quickScanBtn" title="Quick Scan">
+                🔍
+            </button>
+            <button class="quick-scan-btn" id="settingsBtn" title="Settings">
+                ⚙️
+            </button>
+        </div>
+
+        <!-- Chat Container -->
+        <div class="chat-container" id="chatContainer">
+            <!-- Welcome Message -->
+            <div class="message assistant">
+                <div class="message-avatar">🤖</div>
+                <div class="message-content">
+                    <p>Hey there! I'm <strong>Relay</strong>, your personal IT assistant. 👋</p>
+                    <p>I'm here to help whenever your computer gives you trouble. Just tell me what's going on in plain
+                        English - no tech speak required!</p>
+                    <p><em>Try saying things like:</em></p>
+                    <ul>
+                        <li>"My computer is running slow"</li>
+                        <li>"I think I might have a virus"</li>
+                        <li>"I'm running out of storage"</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- System Stats Panel (collapsible) -->
+        <div class="stats-panel collapsed" id="statsPanel">
+            <div class="stats-header" id="statsHeader">
+                <span>System Stats</span>
+                <span class="stats-toggle" id="statsToggle">▲</span>
+            </div>
+            <div class="stats-content" id="statsContent">
+                <div class="stat-item">
+                    <span class="stat-label">CPU</span>
+                    <div class="stat-bar">
+                        <div class="stat-fill cpu-fill" id="cpuBar" style="width: 0%"></div>
+                    </div>
+                    <span class="stat-value" id="cpuValue">--%</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">RAM</span>
+                    <div class="stat-bar">
+                        <div class="stat-fill ram-fill" id="ramBar" style="width: 0%"></div>
+                    </div>
+                    <span class="stat-value" id="ramValue">--%</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Disk</span>
+                    <div class="stat-bar">
+                        <div class="stat-fill disk-fill" id="diskBar" style="width: 0%"></div>
+                    </div>
+                    <span class="stat-value" id="diskValue">--%</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Input Area -->
+        <div class="input-area">
+            <div class="input-container">
+                <textarea id="messageInput" placeholder="Tell me what's wrong with your computer..."
+                    rows="1"></textarea>
+                <button class="send-btn" id="sendBtn" title="Send">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                        <path d="M22 2L11 13" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                            stroke-linejoin="round" />
+                        <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                </button>
+            </div>
+            <div class="input-hint">Press Enter to send, Shift+Enter for new line</div>
+        </div>
+    </div>
+
+    <!-- Action Modal -->
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal" id="actionModal">
+            <div class="modal-header">
+                <h3 id="modalTitle">Confirm Action</h3>
+                <button class="modal-close" id="modalClose">×</button>
+            </div>
+            <div class="modal-body" id="modalBody">
+                <!-- Dynamic content -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="modalCancel">Cancel</button>
+                <button class="btn btn-primary" id="modalConfirm">Yes, do it!</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal-overlay" id="settingsOverlay">
+        <div class="modal settings-modal" id="settingsModal">
+            <div class="modal-header">
+                <h3>⚙️ Settings</h3>
+                <button class="modal-close" id="settingsClose">×</button>
+            </div>
+            <div class="modal-body settings-body">
+                <div class="settings-section">
+                    <h4>🤖 AI Provider</h4>
+                    <div class="setting-item">
+                        <label for="aiProvider">Provider</label>
+                        <select id="aiProvider">
+                            <option value="gemini">Gemini (Cloud)</option>
+                            <option value="ollama">Ollama (Local)</option>
+                        </select>
+                    </div>
+
+                    <div class="setting-item" id="geminiSettings">
+                        <label for="geminiApiKey">Gemini API Key</label>
+                        <input type="password" id="geminiApiKey" placeholder="Enter your Gemini API key">
+                        <small>Get your key at <a href="#" id="geminiKeyLink">Google AI Studio</a></small>
+                        <label for="geminiModel" style="margin-top: 10px;">Model</label>
+                        <select id="geminiModel">
+                            <option value="gemini-2.5-flash">Gemini 2.5 Flash (recommended)</option>
+                            <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+                            <option value="gemma-3-27b-it">Gemma 3 27B</option>
+                            <option value="gemma-3-12b-it">Gemma 3 12B</option>
+                        </select>
+                    </div>
+
+                    <div class="setting-item hidden" id="ollamaSettings">
+                        <label for="ollamaHost">Ollama Host</label>
+                        <input type="text" id="ollamaHost" placeholder="http://localhost:11434">
+                        <label for="ollamaModel" style="margin-top: 10px;">Model</label>
+                        <input type="text" id="ollamaModel" placeholder="qwen3:1.7b">
+                        <label for="ollamaTimeout" style="margin-top: 10px;">Timeout (minutes)</label>
+                        <input type="number" id="ollamaTimeout" placeholder="5" min="1" max="60">
+                    </div>
+                </div>
+
+                <div class="settings-section">
+                    <h4>🔔 Preferences</h4>
+                    <div class="setting-item checkbox-item">
+                        <input type="checkbox" id="minimizeToTray" checked>
+                        <label for="minimizeToTray">Minimize to system tray</label>
+                    </div>
+                    <div class="setting-item checkbox-item">
+                        <input type="checkbox" id="showStats" checked>
+                        <label for="showStats">Show system stats panel</label>
+                    </div>
+                </div>
+
+                <div class="settings-section">
+                    <h4>🛡️ Safety</h4>
+                    <div class="setting-item checkbox-item">
+                        <input type="checkbox" id="requireApproval" checked>
+                        <label for="requireApproval">Always ask before executing actions</label>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="settingsCancel">Cancel</button>
+                <button class="btn btn-primary" id="settingsSave">Save Settings</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>

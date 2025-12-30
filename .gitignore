@@ -1,0 +1,46 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# Build outputs
+dist/
+out/
+build/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Editor directories
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Electron
+*.app
+*.exe
+*.msi
+
+# Test coverage
+coverage/
+
+# Logs
+logs/
+*.log
+
+# SQLite database
+*.db
+*.sqlite
+*.sqlite3
+
+# Temp files
+tmp/
+temp/
