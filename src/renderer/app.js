@@ -514,6 +514,14 @@ class RelayApp {
 
         const actionData = actions[parseInt(index)];
 
+        // Utility actions that should execute and show results
+        const utilityActionTypes = [
+            'generate-password', 'generate-qrcode', 'file-hash', 'text-stats',
+            'format-json', 'base64-encode', 'base64-decode', 'convert-case',
+            'heic-to-jpg', 'resize-image', 'compress-image', 'compress-pdf',
+            'split-pdf', 'merge-pdfs', 'video-to-gif'
+        ];
+
         if (actionData.type === 'open-settings') {
             this.openSettings();
         } else if (actionData.type === 'suggest-diagnostics' || actionData.type === 'run-diagnostics') {
@@ -524,6 +532,9 @@ class RelayApp {
             await this.executeNetworkTest();
         } else if (actionData.type === 'run-deep-scan') {
             await this.executeDeepScan();
+        } else if (utilityActionTypes.includes(actionData.type)) {
+            // Handle utility actions - execute and show result
+            await this.handleUtilityAction(actionData);
         } else if (['kill-process', 'clear-caches', 'empty-trash', 'flush-dns', 'open-app', 'restart-app'].includes(actionData.type)) {
             // Show confirmation modal for these actions
             this.showActionConfirmation(actionData);
@@ -531,6 +542,72 @@ class RelayApp {
             // Show confirmation modal for other actions
             this.showActionConfirmation(actionData);
         }
+    }
+
+    /**
+     * Handle utility action button clicks
+     */
+    async handleUtilityAction(actionData) {
+        // For actions that need user input, show a prompt
+        const needsInput = this.checkIfNeedsInput(actionData);
+
+        if (needsInput) {
+            this.addMessage(needsInput, 'assistant');
+            return;
+        }
+
+        // Execute the action
+        this.setStatus('busy', 'Working...');
+        const result = await this.executeUtilityAction(actionData);
+
+        if (result) {
+            this.addMessage(result, 'assistant');
+        } else {
+            this.addMessage('❌ Action failed. Please try again.', 'assistant');
+        }
+
+        this.setStatus('online', 'Ready to help');
+    }
+
+    /**
+     * Check if a utility action needs user input first
+     */
+    checkIfNeedsInput(action) {
+        switch (action.type) {
+            case 'heic-to-jpg':
+            case 'resize-image':
+            case 'compress-image':
+            case 'compress-pdf':
+            case 'video-to-gif':
+                if (!action.inputPath) {
+                    return '📂 Please tell me the file path, or drag and drop the file.';
+                }
+                break;
+            case 'split-pdf':
+                if (!action.inputPath) {
+                    return '📂 Please provide the PDF file path and which pages you want (e.g., "1-3" or "1,5,7").';
+                }
+                if (!action.pages) {
+                    return '📄 Which pages would you like to extract? (e.g., "1-3" or "1,5,7")';
+                }
+                break;
+            case 'merge-pdfs':
+                if (!action.inputPaths || action.inputPaths.length < 2) {
+                    return '📂 Please provide the paths to 2 or more PDF files to merge.';
+                }
+                break;
+            case 'generate-qrcode':
+                if (!action.content) {
+                    return '📝 What text or URL would you like to turn into a QR code?';
+                }
+                break;
+            case 'file-hash':
+                if (!action.filePath) {
+                    return '📂 Which file would you like me to calculate the checksum for?';
+                }
+                break;
+        }
+        return null;
     }
 
     async runQuickScan() {
@@ -1147,6 +1224,99 @@ class RelayApp {
                     result = await window.relay.utilConvertCase(action.text, action.caseType);
                     if (result.success) {
                         return `✅ **${action.caseType.toUpperCase()} Case:**\n\n${result.result}`;
+                    }
+                    break;
+
+                // ============ MEDIA UTILITY ACTIONS ============
+
+                case 'heic-to-jpg':
+                    if (!action.inputPath) {
+                        return '📂 Please provide the path to the HEIC file.';
+                    }
+                    result = await window.relay.mediaHeicToJpg(action.inputPath, {
+                        quality: parseInt(action.quality) || 90
+                    });
+                    if (result.success) {
+                        return `🖼️ **Converted to JPG!**\n\nSaved: \`${result.outputPath}\`\nSize: ${result.size}`;
+                    }
+                    break;
+
+                case 'resize-image':
+                    if (!action.inputPath) {
+                        return '📂 Please provide the image file path.';
+                    }
+                    result = await window.relay.mediaResizeImage(action.inputPath, {
+                        width: action.width ? parseInt(action.width) : null,
+                        height: action.height ? parseInt(action.height) : null,
+                        percentage: action.percentage ? parseInt(action.percentage) : null
+                    });
+                    if (result.success) {
+                        return `📐 **Image Resized!**\n\nSaved: \`${result.outputPath}\`\nNew size: ${result.dimensions}`;
+                    }
+                    break;
+
+                case 'compress-image':
+                    if (!action.inputPath) {
+                        return '📂 Please provide the image file path.';
+                    }
+                    result = await window.relay.mediaCompressImage(action.inputPath, {
+                        quality: parseInt(action.quality) || 80
+                    });
+                    if (result.success) {
+                        return `🗜️ **Image Compressed!**\n\n${result.message}`;
+                    }
+                    break;
+
+                case 'compress-pdf':
+                    if (!action.inputPath) {
+                        return '📂 Please provide the PDF file path.';
+                    }
+                    result = await window.relay.mediaCompressPdf(action.inputPath, {
+                        quality: action.quality || 'ebook'
+                    });
+                    if (result.success) {
+                        return `📄 **PDF Compressed!**\n\n${result.message}\n\nSaved: \`${result.outputPath}\``;
+                    }
+                    break;
+
+                case 'split-pdf':
+                    if (!action.inputPath || !action.pages) {
+                        return '📂 Please provide the PDF path and pages to extract (e.g., "1-3").';
+                    }
+                    result = await window.relay.mediaSplitPdf(action.inputPath, {
+                        pages: action.pages
+                    });
+                    if (result.success) {
+                        return `✂️ **PDF Split!**\n\n${result.message}`;
+                    }
+                    break;
+
+                case 'merge-pdfs':
+                    if (!action.inputPaths) {
+                        return '📂 Please provide paths to 2 or more PDF files.';
+                    }
+                    // Parse inputPaths if it's a string
+                    let paths = action.inputPaths;
+                    if (typeof paths === 'string') {
+                        paths = paths.split(',').map(p => p.trim());
+                    }
+                    result = await window.relay.mediaMergePdfs(paths, {});
+                    if (result.success) {
+                        return `📑 **PDFs Merged!**\n\n${result.message}`;
+                    }
+                    break;
+
+                case 'video-to-gif':
+                    if (!action.inputPath) {
+                        return '📂 Please provide the video file path.';
+                    }
+                    result = await window.relay.mediaVideoToGif(action.inputPath, {
+                        fps: parseInt(action.fps) || 10,
+                        width: parseInt(action.width) || 480,
+                        duration: action.duration ? parseInt(action.duration) : null
+                    });
+                    if (result.success) {
+                        return `🎬 **GIF Created!**\n\nSaved: \`${result.outputPath}\`\nSize: ${result.size}`;
                     }
                     break;
 
