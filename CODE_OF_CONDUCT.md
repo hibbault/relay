@@ -45,7 +45,8 @@ an individual is officially representing the community in public spaces.
 ## Enforcement
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
-reported by opening an issue on GitHub or contacting the project maintainers.
+reported by contacting the project team at **relay_app@outlook.com** or by
+opening an issue on GitHub.
 
 All complaints will be reviewed and investigated promptly and fairly.
 

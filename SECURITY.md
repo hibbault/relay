@@ -14,7 +14,9 @@ We take security seriously. If you discover a security vulnerability in Relay, p
 
 **Please do NOT open a public GitHub issue for security vulnerabilities.**
 
-Instead, please use [GitHub Security Advisories](https://github.com/hibbault/relay/security/advisories/new) to report vulnerabilities privately.
+Instead, please email us at: **relay_app@outlook.com**
+
+Alternatively, you can use [GitHub Security Advisories](https://github.com/hibbault/relay/security/advisories/new) to report vulnerabilities privately.
 
 Include the following in your report:
 - Description of the vulnerability
