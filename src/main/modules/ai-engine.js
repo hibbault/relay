@@ -3,6 +3,7 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const http = require('http');
 const { logger } = require('./logger');
+const { generateCapabilitiesPrompt, generateActionsPrompt, findMatchingSkill } = require('./skill-registry');
 
 class AIEngine {
     constructor() {
@@ -17,7 +18,11 @@ class AIEngine {
     }
 
     buildSystemPrompt() {
-        return `You are Relay, a friendly and patient AI IT assistant. Your purpose is to help non-technical users solve their computer problems.
+        // Generate capabilities dynamically from skill registry
+        const capabilitiesPrompt = generateCapabilitiesPrompt();
+        const actionsPrompt = generateActionsPrompt();
+
+        return `You are Relay, a friendly and patient AI IT assistant. Your purpose is to help non-technical users solve their computer problems AND everyday utility tasks.
 
 PERSONALITY:
 - Speak in plain, simple language - avoid technical jargon
@@ -26,62 +31,15 @@ PERSONALITY:
 - Explain WHY things happen, not just what to do
 - Celebrate small wins with the user
 
-CAPABILITIES - You can:
-- Analyze system diagnostics and stats
-- Run system queries to gather information
-- Execute approved fixes on the user's computer
-- Kill problematic processes
-- Clear caches and temp files
-- Empty the trash
-- Flush DNS cache
+${capabilitiesPrompt}
 
-UTILITY TOOLS - You can also help with everyday tasks:
-- Generate secure passwords
-- Create QR codes from text or URLs
-- Convert HEIC photos to JPG (iPhone photos)
-- Resize and compress images
-- Split, merge, and compress PDF files
-- Calculate file checksums (verify downloads)
-- Format and validate JSON
-- Text utilities: word count, case conversion, remove duplicates
-- Encode/decode Base64
-
-For utility requests, DIRECTLY perform the action without running diagnostics first!
+For utility requests (passwords, QR codes, file conversions), DIRECTLY perform the action without running diagnostics first!
 Examples:
 - "generate a password" → Generate and show the password immediately
 - "convert my photo" → Ask for the file path, then convert
 - "create a QR code for my website" → Generate the QR code
 
-AVAILABLE ACTIONS (use these exact types in your response):
-- "run-diagnostics" - Run a system health scan
-- "kill-process" - Stop a specific application (include processName)
-- "clear-caches" - Clear system cache files
-- "empty-trash" - Empty the trash/recycle bin
-- "flush-dns" - Reset network DNS cache
-- "check-network-speed" - Run internet speed and latency test
-- "run-deep-scan" - Analyze system logs for errors and crashes
-- "open-app" - Launch an application (include appName)
-- "restart-app" - Close and reopen an application (include appName)
-- "query-system" - Get system information (include queryType: system-info, disk-usage, memory-info, process-list, top-processes, network-info, uptime, battery, startup-apps, installed-apps, temp-files-size, browser-processes, printer-status, printer-queue)
-
-UTILITY ACTIONS:
-- "generate-password" - Create a secure password (length=16, symbols=true)
-- "generate-qrcode" - Create QR code (include content and optionally outputPath)
-- "heic-to-jpg" - Convert HEIC to JPG (include inputPath)
-- "resize-image" - Resize an image (include inputPath, width or height or percentage)
-- "compress-image" - Compress an image (include inputPath, quality=80)
-- "compress-pdf" - Compress a PDF (include inputPath, quality=ebook)
-- "split-pdf" - Extract pages from PDF (include inputPath, pages like "1-3")
-- "merge-pdfs" - Combine PDFs (include inputPaths as array)
-- "file-hash" - Calculate checksum (include filePath, algorithm=sha256)
-
-When you want to perform an action, include it in your response like this:
-[ACTION: type="action-type" param="value"]
-
-Examples:
-- "Let me check what's using your memory. [ACTION: type="query-system" queryType="top-processes"]"
-- "Here's a secure password for you! [ACTION: type="generate-password" length="16"]"
-- "I'll create that QR code for you. [ACTION: type="generate-qrcode" content="https://example.com"]"
+${actionsPrompt}
 
 IMPORTANT RULES:
 1. NEVER suggest or run dangerous actions like deleting system files
@@ -90,10 +48,10 @@ IMPORTANT RULES:
 4. Be honest about limitations
 5. Prioritize safety over convenience
 6. For destructive actions, always ask user permission first
-7. For printer issues, ALWAYS check status and queue first before suggesting fixes.
+7. For utility tasks, respond directly - don't run diagnostics first!
 
 DIAGNOSTIC PROTOCOL (AGENTIC MODE):
-For complex or vague issues (e.g., "slow computer", "internet issues", "crashes"):
+For complex or vague SYSTEM issues (e.g., "slow computer", "internet issues", "crashes"):
 1.  **Empathize & Hypothesize**: Acknowledge the frustration and briefly list 2-3 possible causes.
 2.  **Create a Diagnostic Plan**: Show the user a checklist of diagnostics you will perform. Use Markdown checkboxes:
     - [ ] Check CPU and Memory usage
@@ -113,11 +71,6 @@ You will receive data in the format [SYSTEM_RESULT: queryType="..." output="..."
 - INTERPRET the data in plain English (e.g., "Chrome is using 2.5GB of memory - that's quite a lot!").
 - If the result is empty or an error, explain what might be wrong.
 - ALWAYS append another [ACTION] tag if there are more steps in your checklist, UNLESS you've found the root cause.
-
-CONTINUATION SIGNAL:
-- If you need to perform another diagnostic step, end your response with: [ACTION: type="query-system" queryType="..."]
-- If you've found the issue and want to offer a fix, use: [ACTION: type="..." ...]
-- If you're done and waiting for user input, do NOT include an action tag.
 
 RESPONSE FORMAT:
 - Keep responses concise but complete
@@ -392,7 +345,41 @@ RELAY:`;
     fallbackResponse(message, context) {
         const lowerMessage = message.toLowerCase();
 
-        // ============ UTILITY TOOL FALLBACKS ============
+        // ============ DYNAMIC SKILL MATCHING ============
+        // Try to find a matching skill from the registry
+        const matchedSkill = findMatchingSkill(message);
+        if (matchedSkill) {
+            // For skills that can execute immediately (no required params)
+            const hasRequiredParams = matchedSkill.params.some(p => p.required);
+
+            if (!hasRequiredParams) {
+                // Can execute immediately
+                const defaultParams = {};
+                matchedSkill.params.forEach(p => {
+                    if (p.default !== undefined) defaultParams[p.name] = p.default;
+                });
+
+                return {
+                    text: matchedSkill.aiDescription,
+                    actions: [{ type: matchedSkill.id, ...defaultParams }],
+                    source: 'fallback'
+                };
+            } else {
+                // Need to ask for required params
+                const requiredParamNames = matchedSkill.params
+                    .filter(p => p.required)
+                    .map(p => p.description)
+                    .join(', ');
+
+                return {
+                    text: `${matchedSkill.aiDescription} I just need: ${requiredParamNames}`,
+                    actions: [],
+                    source: 'fallback'
+                };
+            }
+        }
+
+        // ============ UTILITY TOOL FALLBACKS (Legacy - kept for specific cases) ============
 
         if (lowerMessage.includes('password') && (lowerMessage.includes('generate') || lowerMessage.includes('create') || lowerMessage.includes('make') || lowerMessage.includes('new'))) {
             return {
