@@ -8,6 +8,7 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const { logger } = require('./logger');
+const { PDFDocument } = require('pdf-lib');
 
 const execAsync = promisify(exec);
 
@@ -377,33 +378,38 @@ class MediaUtils {
         const output = outputPath || path.join(inputDir, `${inputName}_pages_${pages.replace(/,/g, '_')}.pdf`);
 
         try {
-            let cmd;
+            // Use pdf-lib for pure JavaScript PDF manipulation (no dependencies!)
+            logger.info('[MediaUtils] Splitting PDF with pdf-lib:', inputPath);
 
-            if (this.toolsAvailable['pdftk']) {
-                // pdftk uses "cat" command for page ranges
-                // Convert "1-3,5" format to pdftk format
-                const pdftkPages = pages.replace(/-/g, '-');
-                cmd = `pdftk "${inputPath}" cat ${pdftkPages} output "${output}"`;
-            } else if (this.toolsAvailable['gs']) {
-                // Ghostscript - works for simple ranges
-                const pageRange = pages.split('-');
-                const firstPage = pageRange[0];
-                const lastPage = pageRange[1] || pageRange[0];
-                cmd = `gs -sDEVICE=pdfwrite -dNOPAUSE -dBATCH -dFirstPage=${firstPage} -dLastPage=${lastPage} -sOutputFile="${output}" "${inputPath}"`;
-            } else {
+            // Read the source PDF
+            const pdfBytes = fs.readFileSync(inputPath);
+            const srcDoc = await PDFDocument.load(pdfBytes);
+            const totalPages = srcDoc.getPageCount();
+
+            // Parse page specification
+            const pageIndices = this._parsePageSpec(pages, totalPages);
+
+            if (pageIndices.length === 0) {
                 return {
                     success: false,
-                    error: 'No PDF tools available. Install with: brew install pdftk-java'
+                    error: `No valid pages found. PDF has ${totalPages} pages.`
                 };
             }
 
-            logger.info('[MediaUtils] Splitting PDF:', cmd);
-            await execAsync(cmd);
+            // Create a new PDF with selected pages
+            const newDoc = await PDFDocument.create();
+            const copiedPages = await newDoc.copyPages(srcDoc, pageIndices);
+            copiedPages.forEach(page => newDoc.addPage(page));
+
+            // Save the new PDF
+            const newPdfBytes = await newDoc.save();
+            fs.writeFileSync(output, newPdfBytes);
 
             return {
                 success: true,
                 outputPath: output,
-                message: `Extracted pages ${pages} to: ${path.basename(output)}`
+                pagesExtracted: pageIndices.length,
+                message: `Extracted ${pageIndices.length} page(s) to: ${path.basename(output)}`
             };
         } catch (error) {
             logger.error('[MediaUtils] PDF split failed:', error);
@@ -412,6 +418,35 @@ class MediaUtils {
                 error: error.message
             };
         }
+    }
+
+    /**
+     * Parse page specification like "1-3" or "1,3,5" or "1-3,7"
+     * Returns array of 0-indexed page numbers
+     */
+    _parsePageSpec(spec, totalPages) {
+        const indices = [];
+        const parts = spec.split(',');
+
+        for (const part of parts) {
+            const trimmed = part.trim();
+            if (trimmed.includes('-')) {
+                // Range: "1-3"
+                const [start, end] = trimmed.split('-').map(n => parseInt(n.trim()));
+                for (let i = start; i <= end && i <= totalPages; i++) {
+                    if (i >= 1) indices.push(i - 1); // Convert to 0-indexed
+                }
+            } else {
+                // Single page: "5"
+                const page = parseInt(trimmed);
+                if (page >= 1 && page <= totalPages) {
+                    indices.push(page - 1); // Convert to 0-indexed
+                }
+            }
+        }
+
+        // Remove duplicates and sort
+        return [...new Set(indices)].sort((a, b) => a - b);
     }
 
     // ============ PDF Merge ============
@@ -430,28 +465,28 @@ class MediaUtils {
         const output = outputPath || path.join(firstInputDir, 'merged.pdf');
 
         try {
-            let cmd;
-            const inputFiles = inputPaths.map(p => `"${p}"`).join(' ');
+            // Use pdf-lib for pure JavaScript PDF manipulation (no dependencies!)
+            logger.info('[MediaUtils] Merging PDFs with pdf-lib:', inputPaths.length, 'files');
 
-            if (this.toolsAvailable['pdftk']) {
-                cmd = `pdftk ${inputFiles} cat output "${output}"`;
-            } else if (this.toolsAvailable['gs']) {
-                cmd = `gs -dBATCH -dNOPAUSE -sDEVICE=pdfwrite -sOutputFile="${output}" ${inputFiles}`;
-            } else {
-                return {
-                    success: false,
-                    error: 'No PDF tools available. Install with: brew install pdftk-java'
-                };
+            const mergedDoc = await PDFDocument.create();
+
+            for (const inputPath of inputPaths) {
+                const pdfBytes = fs.readFileSync(inputPath);
+                const srcDoc = await PDFDocument.load(pdfBytes);
+                const copiedPages = await mergedDoc.copyPages(srcDoc, srcDoc.getPageIndices());
+                copiedPages.forEach(page => mergedDoc.addPage(page));
             }
 
-            logger.info('[MediaUtils] Merging PDFs:', cmd);
-            await execAsync(cmd);
+            // Save the merged PDF
+            const mergedPdfBytes = await mergedDoc.save();
+            fs.writeFileSync(output, mergedPdfBytes);
 
             return {
                 success: true,
                 outputPath: output,
                 fileCount: inputPaths.length,
-                message: `Merged ${inputPaths.length} PDFs into: ${path.basename(output)}`
+                totalPages: mergedDoc.getPageCount(),
+                message: `Merged ${inputPaths.length} PDFs (${mergedDoc.getPageCount()} pages) into: ${path.basename(output)}`
             };
         } catch (error) {
             logger.error('[MediaUtils] PDF merge failed:', error);
