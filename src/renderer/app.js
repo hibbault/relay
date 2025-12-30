@@ -237,7 +237,25 @@ class RelayApp {
             } else {
                 // Parse and handle any embedded actions from AI response
                 const { text, actions } = this.parseAIResponse(response.text);
-                this.addMessage(text, 'assistant', [...(response.actions || []), ...actions]);
+
+                // Check for utility actions that should auto-execute
+                const utilityActionTypes = ['generate-password', 'generate-qrcode', 'file-hash', 'text-stats', 'format-json', 'base64-encode', 'base64-decode', 'convert-case'];
+                const utilityActions = actions.filter(a => utilityActionTypes.includes(a.type));
+                const otherActions = actions.filter(a => !utilityActionTypes.includes(a.type));
+
+                // If there are utility actions, execute them and show results
+                if (utilityActions.length > 0) {
+                    for (const action of utilityActions) {
+                        const result = await this.executeUtilityAction(action);
+                        if (result) {
+                            this.addMessage(text + '\n\n' + result, 'assistant', otherActions);
+                        } else {
+                            this.addMessage(text, 'assistant', [...(response.actions || []), ...actions]);
+                        }
+                    }
+                } else {
+                    this.addMessage(text, 'assistant', [...(response.actions || []), ...actions]);
+                }
 
                 // Auto-execute query-system actions
                 for (const action of actions) {
@@ -462,6 +480,25 @@ class RelayApp {
                 return '🩺 Deep Scan';
             case 'query-system':
                 return '🔍 Check';
+            // Utility actions
+            case 'generate-password':
+                return '🔐 Generate Password';
+            case 'generate-qrcode':
+                return '📱 Create QR Code';
+            case 'heic-to-jpg':
+                return '🖼️ Convert Photo';
+            case 'resize-image':
+                return '📐 Resize Image';
+            case 'compress-image':
+                return '🗜️ Compress Image';
+            case 'compress-pdf':
+                return '📄 Compress PDF';
+            case 'split-pdf':
+                return '✂️ Split PDF';
+            case 'merge-pdfs':
+                return '📑 Merge PDFs';
+            case 'file-hash':
+                return '🔍 Verify File';
             default:
                 return '✓ Do it';
         }
@@ -898,22 +935,34 @@ class RelayApp {
 
     /**
      * Parse AI response for embedded actions
-     * Format: [ACTION: type="action-type" param="value"]
+     * Format: [ACTION: type="action-type" param1="value1" param2="value2"]
      */
     parseAIResponse(responseText) {
-        const actionRegex = /\[ACTION:\s*type="([^"]+)"(?:\s+(\w+)="([^"]+)")?\]/g;
+        // Match the entire ACTION block
+        const actionBlockRegex = /\[ACTION:\s*([^\]]+)\]/g;
+        // Match individual key="value" pairs
+        const paramRegex = /(\w+)="([^"]+)"/g;
+
         const actions = [];
         let text = responseText;
 
-        let match;
-        while ((match = actionRegex.exec(responseText)) !== null) {
-            const action = { type: match[1] };
-            if (match[2] && match[3]) {
-                action[match[2]] = match[3];
+        let blockMatch;
+        while ((blockMatch = actionBlockRegex.exec(responseText)) !== null) {
+            const actionContent = blockMatch[1];
+            const action = {};
+
+            // Extract all parameters
+            let paramMatch;
+            while ((paramMatch = paramRegex.exec(actionContent)) !== null) {
+                action[paramMatch[1]] = paramMatch[2];
             }
-            actions.push(action);
+
+            if (action.type) {
+                actions.push(action);
+            }
+
             // Remove action tag from displayed text
-            text = text.replace(match[0], '');
+            text = text.replace(blockMatch[0], '');
         }
 
         return { text: text.trim(), actions };
@@ -1006,6 +1055,115 @@ class RelayApp {
             this.addMessage(`❌ Error: ${error.message}`, 'assistant');
             this.setStatus('error', 'Action failed');
         }
+    }
+
+    /**
+     * Execute utility actions and return formatted results
+     */
+    async executeUtilityAction(action) {
+        try {
+            let result;
+
+            switch (action.type) {
+                case 'generate-password':
+                    const length = parseInt(action.length) || 16;
+                    const includeSymbols = action.includeSymbols !== 'false';
+                    const includeNumbers = action.includeNumbers !== 'false';
+                    result = await window.relay.utilGeneratePassword({
+                        length,
+                        includeSymbols,
+                        includeNumbers
+                    });
+                    if (result.success) {
+                        return `🔐 **Your Secure Password:**\n\n\`${result.password}\`\n\n*Strength: ${result.strength} • ${result.length} characters*\n\n💡 *Tip: Copy this to a password manager!*`;
+                    }
+                    break;
+
+                case 'generate-qrcode':
+                    if (!action.content) {
+                        return '❓ What text or URL would you like me to turn into a QR code?';
+                    }
+                    result = await window.relay.utilGenerateQRCode(action.content, {});
+                    if (result.success) {
+                        return `📱 **QR Code Created!**\n\nSaved to: \`${result.outputPath}\`\n\nContent: ${result.content}`;
+                    }
+                    break;
+
+                case 'file-hash':
+                    if (!action.filePath) {
+                        return '❓ Which file would you like me to calculate the checksum for?';
+                    }
+                    result = await window.relay.utilFileHash(action.filePath, action.algorithm || 'sha256');
+                    if (result.success) {
+                        return `🔍 **${result.algorithm} Checksum:**\n\n\`${result.hash}\`\n\nFile: ${result.fileName}`;
+                    }
+                    break;
+
+                case 'text-stats':
+                    if (!action.text) {
+                        return '❓ What text would you like me to analyze?';
+                    }
+                    result = await window.relay.utilTextStats(action.text);
+                    if (result.success) {
+                        return `📝 **Text Statistics:**\n\n• Words: ${result.words}\n• Characters: ${result.characters}\n• Lines: ${result.lines}\n• Sentences: ${result.sentences}`;
+                    }
+                    break;
+
+                case 'format-json':
+                    if (!action.jsonString) {
+                        return '❓ Paste the JSON you want me to format.';
+                    }
+                    result = await window.relay.utilFormatJson(action.jsonString);
+                    if (result.success) {
+                        return `✅ **Formatted JSON:**\n\n\`\`\`json\n${result.result}\n\`\`\``;
+                    } else {
+                        return `❌ ${result.error}`;
+                    }
+
+                case 'base64-encode':
+                    if (!action.text) {
+                        return '❓ What text would you like me to encode?';
+                    }
+                    result = await window.relay.utilBase64Encode(action.text);
+                    if (result.success) {
+                        return `🔄 **Base64 Encoded:**\n\n\`${result.result}\``;
+                    }
+                    break;
+
+                case 'base64-decode':
+                    if (!action.encoded) {
+                        return '❓ Paste the Base64 you want me to decode.';
+                    }
+                    result = await window.relay.utilBase64Decode(action.encoded);
+                    if (result.success) {
+                        return `🔄 **Decoded:**\n\n${result.result}`;
+                    }
+                    break;
+
+                case 'convert-case':
+                    if (!action.text || !action.caseType) {
+                        return '❓ What text and case type (upper, lower, title)?';
+                    }
+                    result = await window.relay.utilConvertCase(action.text, action.caseType);
+                    if (result.success) {
+                        return `✅ **${action.caseType.toUpperCase()} Case:**\n\n${result.result}`;
+                    }
+                    break;
+
+                default:
+                    return null;
+            }
+
+            if (result && !result.success) {
+                return `❌ ${result.error || 'Action failed'}`;
+            }
+
+        } catch (error) {
+            console.error('Utility action failed:', error);
+            return `❌ Error: ${error.message}`;
+        }
+
+        return null;
     }
 }
 
