@@ -16,7 +16,7 @@ Thank you for your interest in contributing to Relay! We welcome contributions f
 
 2. **Clone your fork**
    ```bash
-   git clone https://github.com/YOUR_USERNAME/relay.git
+   git clone https://github.com/hibbault/relay.git
    cd relay
    ```
 

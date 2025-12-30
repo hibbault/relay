@@ -133,7 +133,7 @@ After fixing, Relay:
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/relay.git
+git clone https://github.com/hibbault/relay.git
 
 # Navigate to project
 cd relay

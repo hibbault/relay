@@ -45,9 +45,7 @@ an individual is officially representing the community in public spaces.
 ## Enforcement
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
-reported to the community leaders responsible for enforcement at:
-
-**Email:** [INSERT CONTACT EMAIL]
+reported by opening an issue on GitHub or contacting the project maintainers.
 
 All complaints will be reviewed and investigated promptly and fairly.
 
