@@ -79,5 +79,9 @@ contextBridge.exposeInMainWorld('relay', {
     utilBase64Encode: (text) => ipcRenderer.invoke('util-base64-encode', text),
     utilBase64Decode: (encoded) => ipcRenderer.invoke('util-base64-decode', encoded),
     utilFormatJson: (jsonString) => ipcRenderer.invoke('util-format-json', jsonString),
-    utilValidateJson: (jsonString) => ipcRenderer.invoke('util-validate-json', jsonString)
+    utilValidateJson: (jsonString) => ipcRenderer.invoke('util-validate-json', jsonString),
+
+    // File Dialogs
+    openFileDialog: (options) => ipcRenderer.invoke('dialog-open-file', options),
+    saveFileDialog: (options) => ipcRenderer.invoke('dialog-save-file', options)
 });

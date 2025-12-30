@@ -1,6 +1,6 @@
 // Relay - Electron Main Process
 require('dotenv').config();
-const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage } = require('electron');
+const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, dialog } = require('electron');
 const path = require('path');
 
 // Module imports
@@ -435,6 +435,43 @@ ipcMain.handle('util-format-json', (event, jsonString) => {
 
 ipcMain.handle('util-validate-json', (event, jsonString) => {
     return utilityTools.validateJson(jsonString);
+});
+
+// ============ File Dialog IPC ============
+
+ipcMain.handle('dialog-open-file', async (event, options = {}) => {
+    const result = await dialog.showOpenDialog(mainWindow, {
+        title: options.title || 'Select File',
+        filters: options.filters || [{ name: 'All Files', extensions: ['*'] }],
+        properties: options.multiple ? ['openFile', 'multiSelections'] : ['openFile']
+    });
+
+    if (result.canceled) {
+        return { canceled: true };
+    }
+
+    return {
+        canceled: false,
+        filePaths: result.filePaths,
+        filePath: result.filePaths[0]
+    };
+});
+
+ipcMain.handle('dialog-save-file', async (event, options = {}) => {
+    const result = await dialog.showSaveDialog(mainWindow, {
+        title: options.title || 'Save File',
+        defaultPath: options.defaultPath,
+        filters: options.filters || [{ name: 'All Files', extensions: ['*'] }]
+    });
+
+    if (result.canceled) {
+        return { canceled: true };
+    }
+
+    return {
+        canceled: false,
+        filePath: result.filePath
+    };
 });
 
 // ============ App Lifecycle ============

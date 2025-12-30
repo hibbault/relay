@@ -548,11 +548,11 @@ class RelayApp {
      * Handle utility action button clicks
      */
     async handleUtilityAction(actionData) {
-        // For actions that need user input, show a prompt
-        const needsInput = this.checkIfNeedsInput(actionData);
+        // For actions that need a file, open a file picker
+        const needsFile = await this.getFileIfNeeded(actionData);
 
-        if (needsInput) {
-            this.addMessage(needsInput, 'assistant');
+        if (needsFile === 'canceled') {
+            this.addMessage('No problem! Let me know if you need anything else.', 'assistant');
             return;
         }
 
@@ -567,6 +567,79 @@ class RelayApp {
         }
 
         this.setStatus('online', 'Ready to help');
+    }
+
+    /**
+     * Open file picker if the action needs a file input
+     */
+    async getFileIfNeeded(action) {
+        const fileFilters = {
+            'heic-to-jpg': [{ name: 'HEIC Images', extensions: ['heic', 'HEIC'] }],
+            'resize-image': [{ name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'] }],
+            'compress-image': [{ name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'] }],
+            'compress-pdf': [{ name: 'PDF Files', extensions: ['pdf'] }],
+            'split-pdf': [{ name: 'PDF Files', extensions: ['pdf'] }],
+            'merge-pdfs': [{ name: 'PDF Files', extensions: ['pdf'] }],
+            'video-to-gif': [{ name: 'Videos', extensions: ['mov', 'mp4', 'avi', 'mkv', 'webm'] }],
+            'file-hash': [{ name: 'All Files', extensions: ['*'] }]
+        };
+
+        const titles = {
+            'heic-to-jpg': 'Select HEIC Photo to Convert',
+            'resize-image': 'Select Image to Resize',
+            'compress-image': 'Select Image to Compress',
+            'compress-pdf': 'Select PDF to Compress',
+            'split-pdf': 'Select PDF to Split',
+            'merge-pdfs': 'Select PDFs to Merge',
+            'video-to-gif': 'Select Video to Convert',
+            'file-hash': 'Select File to Hash'
+        };
+
+        // Single file actions
+        const singleFileActions = ['heic-to-jpg', 'resize-image', 'compress-image', 'compress-pdf', 'split-pdf', 'video-to-gif', 'file-hash'];
+
+        if (singleFileActions.includes(action.type) && !action.inputPath && !action.filePath) {
+            const result = await window.relay.openFileDialog({
+                title: titles[action.type] || 'Select File',
+                filters: fileFilters[action.type] || [{ name: 'All Files', extensions: ['*'] }],
+                multiple: false
+            });
+
+            if (result.canceled) {
+                return 'canceled';
+            }
+
+            // Set the path on the action
+            action.inputPath = result.filePath;
+            action.filePath = result.filePath;
+        }
+
+        // Multi-file actions (merge-pdfs)
+        if (action.type === 'merge-pdfs' && !action.inputPaths) {
+            const result = await window.relay.openFileDialog({
+                title: 'Select PDFs to Merge (select 2 or more)',
+                filters: [{ name: 'PDF Files', extensions: ['pdf'] }],
+                multiple: true
+            });
+
+            if (result.canceled || result.filePaths.length < 2) {
+                if (!result.canceled && result.filePaths.length < 2) {
+                    this.addMessage('📂 Please select at least 2 PDF files to merge.', 'assistant');
+                }
+                return 'canceled';
+            }
+
+            action.inputPaths = result.filePaths;
+        }
+
+        // For split-pdf, also need pages
+        if (action.type === 'split-pdf' && !action.pages) {
+            // Ask for pages - for now, prompt via a simple dialog concept
+            // We'll handle this in executeUtilityAction
+            action.pages = action.pages || '1'; // Default to first page if not specified
+        }
+
+        return null;
     }
 
     /**
